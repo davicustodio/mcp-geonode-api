@@ -17,6 +17,7 @@ This keeps the MCP ready for future API changes without spreading version checks
 - Write the generated MCP client configuration directly into a local config file
 - Verify that a written MCP config file is structurally correct and usable
 - Bootstrap a complete MCP client setup in one call
+- Resolve the groups associated with a specific user
 - List and manage datasets, documents, maps, users, and groups
 - List categories, keywords, regions, and owners
 - Centralized compatibility layer for GeoNode/API version mapping
@@ -193,6 +194,73 @@ You can also pass an API URL directly:
 1. Run `geonode_detect_instance` against the target URL.
 2. Copy the returned recommended settings into your MCP client configuration.
 3. If `GEONODE_VERSION` is returned as `undetermined` or `null`, keep the detected `GEONODE_API_VERSION` and confirm the GeoNode major version manually.
+
+## Looking Up a User's Groups
+
+The MCP includes a dedicated tool named `geonode_get_user_groups`.
+
+Use it when you need to answer questions such as:
+
+- "Which group does user `my-user` belong to?"
+- "List the groups for a given user"
+- "Resolve user membership by username without manually browsing users and groups"
+
+### Tool name
+
+```text
+geonode_get_user_groups
+```
+
+### Input parameters
+
+- `user_id`: optional user numeric ID
+- `username`: optional exact username when the user ID is not known
+- `response_format`: `json` or `markdown`
+
+You must provide either `user_id` or `username`.
+
+### Example call by username
+
+```json
+{
+  "username": "my-user",
+  "response_format": "json"
+}
+```
+
+### Example response
+
+```json
+{
+  "user": {
+    "pk": 1317,
+    "username": "my-user"
+  },
+  "groups": [
+    {
+      "pk": 59,
+      "title": "GRUPO_ACOES_RS",
+      "group": {
+        "name": "ROLE_GRUPO_ACOES_RS"
+      }
+    }
+  ]
+}
+```
+
+### Why this tool exists
+
+Without this tool, answering "which group does this user belong to?" is unnecessarily awkward:
+
+- `geonode_list_users` is for discovery, not exact membership lookup
+- `geonode_get_user` does not expose group membership directly
+- `geonode_list_groups` is not optimized for reverse lookup by user
+
+`geonode_get_user_groups` solves that directly by:
+
+1. resolving the user by exact username when needed
+2. calling the user-to-groups endpoint
+3. returning the membership list in one step
 
 ## Generating Ready-to-Use MCP Client Config
 

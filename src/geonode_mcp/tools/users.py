@@ -8,6 +8,7 @@ from ..client import api, handle_api_error
 from ..models.common import ResponseFormat, build_pagination_params, format_pagination_footer
 from ..models.users import (
     GetGroupInput,
+    GetUserGroupsInput,
     GetUserInput,
     ListGroupsInput,
     ListUsersInput,
@@ -83,6 +84,68 @@ async def geonode_get_user(params: GetUserInput) -> str:
             f"**Permissions**: {perms or 'None'}",
             f"**Avatar**: {u.get('avatar', 'N/A')}",
         ]
+        return "\n".join(lines)
+
+    except Exception as exc:
+        return handle_api_error(exc)
+
+
+async def geonode_get_user_groups(params: GetUserGroupsInput) -> str:
+    """Returns a user's groups by ID or exact username.
+
+    Returns:
+        List of groups associated with the user, including IDs and internal names.
+    """
+    try:
+        user = None
+        user_id = params.user_id
+
+        if user_id is None:
+            if not params.username:
+                return "Error: Provide `user_id` or `username`."
+            lookup = await api.get(
+                api.route("users"),
+                params={"filter{username}": params.username, "page": 1, "page_size": 2},
+            )
+            matches = lookup.get("users", [])
+            if not matches:
+                return f"No user found with username `{params.username}`."
+            user = matches[0]
+            user_id = user.get("pk")
+
+        data = await api.get(api.route("user_groups", user_id=user_id))
+        groups = (
+            data
+            if isinstance(data, list)
+            else data.get("groups", data.get("group_profiles", []))
+        )
+
+        if params.response_format == ResponseFormat.JSON:
+            return json.dumps(
+                {
+                    "user": user or {"pk": user_id, "username": params.username},
+                    "groups": groups,
+                },
+                indent=2,
+                ensure_ascii=False,
+            )
+
+        username = (
+            (user or {}).get("username")
+            or params.username
+            or f"id={user_id}"
+        )
+        if not groups:
+            return f"The user `{username}` has no associated groups."
+
+        lines = [f"# User groups for `{username}`", ""]
+        for group in groups:
+            inner_group = group.get("group", {})
+            lines.append(f"- **{group.get('title', group.get('name', 'N/A'))}**")
+            lines.append(f"  ID: {group.get('pk', 'N/A')}")
+            lines.append(f"  Internal name: {inner_group.get('name', 'N/A')}")
+            if group.get("description"):
+                lines.append(f"  Description: {group['description']}")
         return "\n".join(lines)
 
     except Exception as exc:

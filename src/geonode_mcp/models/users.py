@@ -21,6 +21,16 @@ class GetUserInput(PaginationInput):
     user_id: int = Field(..., description="User ID (pk)", gt=0)
 
 
+class GetUserGroupsInput(PaginationInput):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    user_id: Optional[int] = Field(default=None, description="User ID (pk)", gt=0)
+    username: Optional[str] = Field(
+        default=None,
+        description="Exact user username when the ID is not known",
+    )
+
+
 class UpdateUserInput(PaginationInput):
     model_config = ConfigDict(str_strip_whitespace=True)
 

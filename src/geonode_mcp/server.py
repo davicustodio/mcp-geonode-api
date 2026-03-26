@@ -47,6 +47,7 @@ from .tools.resources import (
 from .tools.users import (
     geonode_get_group,
     geonode_get_user,
+    geonode_get_user_groups,
     geonode_list_groups,
     geonode_list_users,
     geonode_update_user,
@@ -337,6 +338,17 @@ mcp.tool(
         "openWorldHint": True,
     },
 )(geonode_get_user)
+
+mcp.tool(
+    name="geonode_get_user_groups",
+    annotations={
+        "title": "List User Groups",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)(geonode_get_user_groups)
 
 mcp.tool(
     name="geonode_update_user",

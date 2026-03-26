@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -26,7 +25,7 @@ class PaginationInput(BaseModel):
     )
 
 
-def build_pagination_params(limit: int, offset: int) -> dict[str, int]:
+def build_pagination_params(limit: int, offset: int) -> dict[str, object]:
     """Converts limit/offset into GeoNode page/page_size parameters."""
     page_size = min(limit, 100)
     page = (offset // page_size) + 1

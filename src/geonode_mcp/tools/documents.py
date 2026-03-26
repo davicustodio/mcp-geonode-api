@@ -51,7 +51,7 @@ async def geonode_list_documents(params: ListDocumentsInput) -> str:
         if params.subtype:
             qp["filter{subtype}"] = params.subtype
 
-        data = await api.get("/documents/", params=qp)
+        data = await api.get(api.route("documents"), params=qp)
         docs = data.get("documents", [])
         total = data.get("total", 0)
 
@@ -81,7 +81,7 @@ async def geonode_get_document(params: GetDocumentInput) -> str:
         Full document metadata including abstract, links, and permissions.
     """
     try:
-        data = await api.get(f"/documents/{params.document_id}/")
+        data = await api.get(api.route("document_detail", document_id=params.document_id))
         d = data.get("document", data)
 
         if params.response_format == ResponseFormat.JSON:
@@ -143,7 +143,7 @@ async def geonode_create_document(params: CreateDocumentInput) -> str:
         if params.keywords:
             payload["keywords"] = [{"name": k} for k in params.keywords]
 
-        data = await api.post("/documents/", data=payload)
+        data = await api.post(api.route("documents"), data=payload)
         doc = data.get("document", data)
 
         if params.response_format == ResponseFormat.JSON:
@@ -184,7 +184,10 @@ async def geonode_update_document(params: UpdateDocumentInput) -> str:
         if not payload:
             return "Error: Nenhum campo para atualizar foi informado."
 
-        data = await api.patch(f"/documents/{params.document_id}/", data=payload)
+        data = await api.patch(
+            api.route("document_detail", document_id=params.document_id),
+            data=payload,
+        )
         doc = data.get("document", data)
 
         if params.response_format == ResponseFormat.JSON:
@@ -209,7 +212,7 @@ async def geonode_delete_document(params: DeleteDocumentInput) -> str:
         Deletion confirmation.
     """
     try:
-        await api.delete(f"/documents/{params.document_id}/")
+        await api.delete(api.route("document_detail", document_id=params.document_id))
         return f"Document ID {params.document_id} deleted successfully."
     except Exception as exc:
         return handle_api_error(exc)

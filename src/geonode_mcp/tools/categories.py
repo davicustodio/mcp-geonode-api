@@ -16,7 +16,7 @@ async def geonode_list_categories(params: ListCategoriesInput) -> str:
         List of categories with identifier, description, and resource count.
     """
     try:
-        data = await api.get("/categories/")
+        data = await api.get(api.route("categories"))
         items = data.get("TopicCategory", data.get("categories", []))
         total = len(items)
 
@@ -51,7 +51,7 @@ async def geonode_list_keywords(params: ListKeywordsInput) -> str:
         if params.search:
             qp["search"] = params.search
 
-        data = await api.get("/keywords/", params=qp)
+        data = await api.get(api.route("keywords"), params=qp)
         items = data.get("keywords", data.get("HierarchicalKeyword", []))
         total = data.get("total", len(items))
 
@@ -86,7 +86,7 @@ async def geonode_list_regions(params: ListRegionsInput) -> str:
         if params.search:
             qp["search"] = params.search
 
-        data = await api.get("/regions/", params=qp)
+        data = await api.get(api.route("regions"), params=qp)
         items = data.get("regions", [])
         total = data.get("total", len(items))
 
@@ -121,7 +121,7 @@ async def geonode_list_owners(params: ListOwnersInput) -> str:
         if params.search:
             qp["search"] = params.search
 
-        data = await api.get("/owners/", params=qp)
+        data = await api.get(api.route("owners"), params=qp)
         items = data.get("owners", [])
         total = data.get("total", len(items))
 

@@ -53,7 +53,7 @@ async def geonode_list_datasets(params: ListDatesetsInput) -> str:
         if params.keyword:
             qp["filter{keywords.name}"] = params.keyword
 
-        data = await api.get("/datasets/", params=qp)
+        data = await api.get(api.route("datasets"), params=qp)
         items = data.get("datasets", [])
         total = data.get("total", 0)
 
@@ -83,7 +83,7 @@ async def geonode_get_dataset(params: GetDatesetInput) -> str:
         Full metadata including abstract, extent, styles, and links.
     """
     try:
-        data = await api.get(f"/datasets/{params.dataset_id}/")
+        data = await api.get(api.route("dataset_detail", dataset_id=params.dataset_id))
         d = data.get("dataset", data)
 
         if params.response_format == ResponseFormat.JSON:
@@ -146,7 +146,7 @@ async def geonode_create_dataset(params: CreateDatesetInput) -> str:
         if params.keywords:
             payload["keywords"] = [{"name": k} for k in params.keywords]
 
-        data = await api.post("/datasets/", data=payload)
+        data = await api.post(api.route("datasets"), data=payload)
         ds = data.get("dataset", data)
 
         if params.response_format == ResponseFormat.JSON:
@@ -187,7 +187,10 @@ async def geonode_update_dataset(params: UpdateDatesetInput) -> str:
         if not payload:
             return "Error: Nenhum campo para atualizar foi informado."
 
-        data = await api.patch(f"/datasets/{params.dataset_id}/", data=payload)
+        data = await api.patch(
+            api.route("dataset_detail", dataset_id=params.dataset_id),
+            data=payload,
+        )
         ds = data.get("dataset", data)
 
         if params.response_format == ResponseFormat.JSON:
@@ -212,7 +215,7 @@ async def geonode_delete_dataset(params: DeleteDatesetInput) -> str:
         Deletion confirmation.
     """
     try:
-        await api.delete(f"/datasets/{params.dataset_id}/")
+        await api.delete(api.route("dataset_detail", dataset_id=params.dataset_id))
         return f"Dateset ID {params.dataset_id} deleted successfully."
     except Exception as exc:
         return handle_api_error(exc)

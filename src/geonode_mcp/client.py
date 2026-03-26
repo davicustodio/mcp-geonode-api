@@ -35,6 +35,9 @@ class GeoNodeClient:
             raise RuntimeError("Client not initialized. Call start() first.")
         return self._client
 
+    def route(self, name: str, **params: object) -> str:
+        return config.COMPATIBILITY.route(name, **params)
+
     async def get(self, endpoint: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         resp = await self.http.get(f"/{endpoint.lstrip('/')}", params=params)
         resp.raise_for_status()

@@ -1,4 +1,5 @@
 """MCP server entrypoint for the GeoNode API."""
+# mypy: disable-error-code=arg-type
 
 from __future__ import annotations
 
@@ -7,39 +8,6 @@ from contextlib import asynccontextmanager
 from mcp.server.fastmcp import FastMCP
 
 from .client import api
-from .models.datasets import (
-    CreateDatesetInput,
-    DeleteDatesetInput,
-    GetDatesetInput,
-    ListDatesetsInput,
-    UpdateDatesetInput,
-)
-from .models.documents import (
-    CreateDocumentInput,
-    DeleteDocumentInput,
-    GetDocumentInput,
-    ListDocumentsInput,
-    UpdateDocumentInput,
-)
-from .models.maps import (
-    CreateMapInput,
-    DeleteMapInput,
-    GetMapInput,
-    ListMapsInput,
-    UpdateMapInput,
-)
-from .models.resources import GetResourceInput, SearchResourcesInput
-from .models.users import (
-    GetGroupInput,
-    GetUserInput,
-    ListCategoriesInput,
-    ListGroupsInput,
-    ListKeywordsInput,
-    ListOwnersInput,
-    ListRegionsInput,
-    ListUsersInput,
-    UpdateUserInput,
-)
 from .tools.categories import (
     geonode_list_categories,
     geonode_list_keywords,
@@ -67,7 +35,15 @@ from .tools.maps import (
     geonode_list_maps,
     geonode_update_map,
 )
-from .tools.resources import geonode_get_resource, geonode_search_resources
+from .tools.resources import (
+    geonode_bootstrap_mcp_config,
+    geonode_detect_instance,
+    geonode_generate_mcp_config,
+    geonode_get_resource,
+    geonode_search_resources,
+    geonode_verify_mcp_config,
+    geonode_write_mcp_config,
+)
 from .tools.users import (
     geonode_get_group,
     geonode_get_user,
@@ -89,6 +65,61 @@ async def lifespan(server: FastMCP):
 mcp = FastMCP("geonode_mcp", lifespan=lifespan)
 
 # ── Resources ────────────────────────────────────────────────────────────────
+
+mcp.tool(
+    name="geonode_detect_instance",
+    annotations={
+        "title": "Detect GeoNode Instance Compatibility",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)(geonode_detect_instance)
+
+mcp.tool(
+    name="geonode_bootstrap_mcp_config",
+    annotations={
+        "title": "Full MCP Configuration Bootstrap",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)(geonode_bootstrap_mcp_config)
+
+mcp.tool(
+    name="geonode_generate_mcp_config",
+    annotations={
+        "title": "Generate MCP Configuration for Client",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)(geonode_generate_mcp_config)
+
+mcp.tool(
+    name="geonode_write_mcp_config",
+    annotations={
+        "title": "Write MCP Configuration to File",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)(geonode_write_mcp_config)
+
+mcp.tool(
+    name="geonode_verify_mcp_config",
+    annotations={
+        "title": "Verify MCP Configuration File",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)(geonode_verify_mcp_config)
 
 mcp.tool(
     name="geonode_search_resources",

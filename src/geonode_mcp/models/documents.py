@@ -34,7 +34,10 @@ class CreateDocumentInput(PaginationInput):
     abstract: Optional[str] = Field(default=None, description="Summary/description do documento")
     doc_url: Optional[str] = Field(default=None, description="External document URL")
     category: Optional[str] = Field(default=None, description="Category identifier")
-    regions: Optional[list[str]] = Field(default=None, description="Region codes (ex: ['BRA'])")
+    regions: Optional[list[str]] = Field(
+        default=None,
+        description="Region codes (ex: ['BRA'])",
+    )
     keywords: Optional[list[str]] = Field(default=None, description="List of keywords")
     is_published: bool = Field(default=True, description="Publish immediately")
     is_approved: bool = Field(default=True, description="Approve immediately")

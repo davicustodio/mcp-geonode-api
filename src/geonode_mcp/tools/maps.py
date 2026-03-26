@@ -51,7 +51,7 @@ async def geonode_list_maps(params: ListMapsInput) -> str:
         if params.keyword:
             qp["filter{keywords.name}"] = params.keyword
 
-        data = await api.get("/maps/", params=qp)
+        data = await api.get(api.route("maps"), params=qp)
         items = data.get("maps", [])
         total = data.get("total", 0)
 
@@ -81,7 +81,7 @@ async def geonode_get_map(params: GetMapInput) -> str:
         Full metadata including abstract, layers (maplayers), and links.
     """
     try:
-        data = await api.get(f"/maps/{params.map_id}/")
+        data = await api.get(api.route("map_detail", map_id=params.map_id))
         m = data.get("map", data)
 
         if params.response_format == ResponseFormat.JSON:
@@ -111,7 +111,6 @@ async def geonode_get_map(params: GetMapInput) -> str:
         if maplayers:
             lines.append(f"\n## Layers ({len(maplayers)})")
             for layer in maplayers:
-                extra = layer.get("extra_params", {})
                 lines.append(f"- {layer.get('name', 'N/A')} (visible: {layer.get('visibility')})")
 
         lines.extend([
@@ -146,7 +145,7 @@ async def geonode_create_map(params: CreateMapInput) -> str:
         if params.keywords:
             payload["keywords"] = [{"name": k} for k in params.keywords]
 
-        data = await api.post("/maps/", data=payload)
+        data = await api.post(api.route("maps"), data=payload)
         m = data.get("map", data)
 
         if params.response_format == ResponseFormat.JSON:
@@ -187,7 +186,7 @@ async def geonode_update_map(params: UpdateMapInput) -> str:
         if not payload:
             return "Error: Nenhum campo para atualizar foi informado."
 
-        data = await api.patch(f"/maps/{params.map_id}/", data=payload)
+        data = await api.patch(api.route("map_detail", map_id=params.map_id), data=payload)
         m = data.get("map", data)
 
         if params.response_format == ResponseFormat.JSON:
@@ -212,7 +211,7 @@ async def geonode_delete_map(params: DeleteMapInput) -> str:
         Deletion confirmation.
     """
     try:
-        await api.delete(f"/maps/{params.map_id}/")
+        await api.delete(api.route("map_detail", map_id=params.map_id))
         return f"Map ID {params.map_id} deleted successfully."
     except Exception as exc:
         return handle_api_error(exc)

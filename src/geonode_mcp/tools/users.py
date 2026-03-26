@@ -26,7 +26,7 @@ async def geonode_list_users(params: ListUsersInput) -> str:
         if params.search:
             qp["search"] = params.search
 
-        data = await api.get("/users/", params=qp)
+        data = await api.get(api.route("users"), params=qp)
         items = data.get("users", [])
         total = data.get("total", 0)
 
@@ -62,7 +62,7 @@ async def geonode_get_user(params: GetUserInput) -> str:
         Full user data including permissions and avatar.
     """
     try:
-        data = await api.get(f"/users/{params.user_id}/")
+        data = await api.get(api.route("user_detail", user_id=params.user_id))
         u = data.get("user", data)
 
         if params.response_format == ResponseFormat.JSON:
@@ -76,7 +76,10 @@ async def geonode_get_user(params: GetUserInput) -> str:
             "",
             f"**Username**: `{u.get('username', 'N/A')}`",
             f"**Email**: {u.get('email', 'N/A')}",
-            f"**Staff**: {u.get('is_staff', False)} | **Superuser**: {u.get('is_superuser', False)}",
+            (
+                f"**Staff**: {u.get('is_staff', False)} | "
+                f"**Superuser**: {u.get('is_superuser', False)}"
+            ),
             f"**Permissions**: {perms or 'None'}",
             f"**Avatar**: {u.get('avatar', 'N/A')}",
         ]
@@ -102,7 +105,7 @@ async def geonode_update_user(params: UpdateUserInput) -> str:
         if not payload:
             return "Error: Nenhum campo para atualizar foi informado."
 
-        data = await api.patch(f"/users/{params.user_id}/", data=payload)
+        data = await api.patch(api.route("user_detail", user_id=params.user_id), data=payload)
         u = data.get("user", data)
 
         if params.response_format == ResponseFormat.JSON:
@@ -129,7 +132,7 @@ async def geonode_list_groups(params: ListGroupsInput) -> str:
         if params.search:
             qp["search"] = params.search
 
-        data = await api.get("/groups/", params=qp)
+        data = await api.get(api.route("groups"), params=qp)
         items = data.get("groups", [])
         total = data.get("total", 0)
 
@@ -160,7 +163,7 @@ async def geonode_get_group(params: GetGroupInput) -> str:
         Group data including name, description, and members.
     """
     try:
-        data = await api.get(f"/groups/{params.group_id}/")
+        data = await api.get(api.route("group_detail", group_id=params.group_id))
         g = data.get("group", data)
 
         if params.response_format == ResponseFormat.JSON:

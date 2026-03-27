@@ -2,7 +2,7 @@
 
 ## Contexto
 
-A API REST v2 do GeoNode em `https://geoinfo.dados.embrapa.br/api/v2/` expoe 17 endpoints:
+A API REST v2 do GeoNode em `https://demo.geonode.org/api/v2/` expoe 17 endpoints:
 
 | Endpoint | Total registros | Metodos HTTP |
 |----------|----------------|--------------|
@@ -25,7 +25,7 @@ Autenticacao: HTTP Basic Auth. API suporta filtros via `filter{campo}=valor` e p
 ## Arquitetura
 
 ```
-mcp-geoinfo-api/
+mcp-geonode-api/
   docs/
     original-plan.md
   src/

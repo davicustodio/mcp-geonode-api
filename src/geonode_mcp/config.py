@@ -20,7 +20,7 @@ class Settings:
 
 
 def load_settings() -> Settings:
-    geonode_url = os.environ.get("GEONODE_URL", "https://geoinfo.dados.embrapa.br").rstrip("/")
+    geonode_url = os.environ.get("GEONODE_URL", "https://demo.geonode.org").rstrip("/")
     geonode_user = os.environ.get("GEONODE_USER", "admin")
     geonode_password = os.environ.get("GEONODE_PASSWORD", "")
     geonode_version = os.environ.get("GEONODE_VERSION", "5")

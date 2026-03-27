@@ -47,7 +47,7 @@ Default runtime values:
 
 ```bash
 git clone <your-repo-url>
-cd mcp-geoinfo-api
+cd mcp-geonode-api
 ```
 
 ### 2. Create a virtual environment
@@ -298,7 +298,7 @@ geonode_generate_mcp_config
   "url": "https://your-geonode.example.com",
   "username": "admin",
   "password": "your-password",
-  "python_command": "/path/to/mcp-geoinfo-api/.venv/bin/python",
+  "python_command": "/path/to/mcp-geonode-api/.venv/bin/python",
   "response_format": "markdown"
 }
 ```
@@ -358,7 +358,7 @@ geonode_bootstrap_mcp_config
   "config_path": "/Users/you/.cursor/mcp.json",
   "username": "admin",
   "password": "your-password",
-  "python_command": "/path/to/mcp-geoinfo-api/.venv/bin/python",
+  "python_command": "/path/to/mcp-geonode-api/.venv/bin/python",
   "verify_after_write": true,
   "response_format": "json"
 }
@@ -418,7 +418,7 @@ geonode_write_mcp_config
   "config_path": "/Users/you/.cursor/mcp.json",
   "username": "admin",
   "password": "your-password",
-  "python_command": "/path/to/mcp-geoinfo-api/.venv/bin/python",
+  "python_command": "/path/to/mcp-geonode-api/.venv/bin/python",
   "response_format": "markdown"
 }
 ```
@@ -481,8 +481,8 @@ geonode_verify_mcp_config
 
 The examples below assume:
 
-- the repository lives at `/path/to/mcp-geoinfo-api`
-- the virtual environment lives at `/path/to/mcp-geoinfo-api/.venv`
+- the repository lives at `/path/to/mcp-geonode-api`
+- the virtual environment lives at `/path/to/mcp-geonode-api/.venv`
 
 Adjust those paths to your machine.
 
@@ -497,7 +497,7 @@ File: `~/.codex/config.toml`
 
 ```toml
 [mcp_servers.geonode]
-command = "/path/to/mcp-geoinfo-api/.venv/bin/python"
+command = "/path/to/mcp-geonode-api/.venv/bin/python"
 args = ["-m", "geonode_mcp"]
 
 [mcp_servers.geonode.env]
@@ -523,7 +523,7 @@ File: `.cursor/mcp.json`
 {
   "mcpServers": {
     "geonode": {
-      "command": "/path/to/mcp-geoinfo-api/.venv/bin/python",
+      "command": "/path/to/mcp-geonode-api/.venv/bin/python",
       "args": ["-m", "geonode_mcp"],
       "env": {
         "GEONODE_URL": "https://your-geonode.example.com",
@@ -555,7 +555,7 @@ File: `opencode.json`
     "geonode": {
       "type": "local",
       "command": [
-        "/path/to/mcp-geoinfo-api/.venv/bin/python",
+        "/path/to/mcp-geonode-api/.venv/bin/python",
         "-m",
         "geonode_mcp"
       ],
@@ -588,7 +588,7 @@ claude mcp add --transport stdio geonode \
   --env GEONODE_PASSWORD=your-password \
   --env GEONODE_VERSION=5 \
   --env GEONODE_API_VERSION=v2 \
-  -- /path/to/mcp-geoinfo-api/.venv/bin/python -m geonode_mcp
+  -- /path/to/mcp-geonode-api/.venv/bin/python -m geonode_mcp
 ```
 
 For a shared project configuration:
@@ -600,7 +600,7 @@ claude mcp add --transport stdio --scope project geonode \
   --env GEONODE_PASSWORD=your-password \
   --env GEONODE_VERSION=5 \
   --env GEONODE_API_VERSION=v2 \
-  -- /path/to/mcp-geoinfo-api/.venv/bin/python -m geonode_mcp
+  -- /path/to/mcp-geonode-api/.venv/bin/python -m geonode_mcp
 ```
 
 #### Option 2: configure `.mcp.json` manually
@@ -611,7 +611,7 @@ File: `.mcp.json`
 {
   "mcpServers": {
     "geonode": {
-      "command": "/path/to/mcp-geoinfo-api/.venv/bin/python",
+      "command": "/path/to/mcp-geonode-api/.venv/bin/python",
       "args": ["-m", "geonode_mcp"],
       "env": {
         "GEONODE_URL": "https://your-geonode.example.com",

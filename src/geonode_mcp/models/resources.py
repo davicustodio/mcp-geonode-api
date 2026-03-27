@@ -89,7 +89,7 @@ class GenerateMCPConfigInput(BaseModel):
     )
     server_name: str = Field(default="geonode", description="MCP server name in the client")
     python_command: str = Field(
-        default="/path/to/mcp-geoinfo-api/.venv/bin/python",
+        default="/path/to/mcp-geonode-api/.venv/bin/python",
         description="Python executable that will start `python -m geonode_mcp`",
     )
     response_format: ResponseFormat = Field(

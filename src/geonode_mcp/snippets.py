@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 from typing import Any
 
 from .models.resources import MCPClientTarget
@@ -103,10 +104,12 @@ def _build_claude_code_snippet(
     python_command: str,
     env: dict[str, str],
 ) -> dict[str, Any]:
-    env_flags = " ".join([f"--env {key}={value}" for key, value in env.items()])
+    env_flags = " ".join([
+        f"--env {shlex.quote(f'{key}={value}')}" for key, value in env.items()
+    ])
     cli_command = (
-        f"claude mcp add --transport stdio {server_name} "
-        f"{env_flags} -- {python_command} -m geonode_mcp"
+        f"claude mcp add --transport stdio {shlex.quote(server_name)} "
+        f"{env_flags} -- {shlex.quote(python_command)} -m geonode_mcp"
     )
     json_snippet = json.dumps(
         {

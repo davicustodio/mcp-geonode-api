@@ -16,6 +16,7 @@ class Settings:
     geonode_version: str
     api_version: str
     api_base: str
+    verify_ssl: bool
     compatibility: GeoNodeCompatibility
 
 
@@ -26,6 +27,7 @@ def load_settings() -> Settings:
     geonode_version = os.environ.get("GEONODE_VERSION", "5")
     api_version = os.environ.get("GEONODE_API_VERSION", "v2")
     api_base_path = os.environ.get("GEONODE_API_BASE_PATH")
+    geonode_verify_ssl = os.environ.get("GEONODE_VERIFY_SSL", "true").strip().lower()
 
     compatibility = resolve_compatibility(
         geonode_version=geonode_version,
@@ -40,6 +42,7 @@ def load_settings() -> Settings:
         geonode_version=compatibility.geonode_version,
         api_version=compatibility.api_version,
         api_base=f"{geonode_url}{compatibility.api_base_path}",
+        verify_ssl=geonode_verify_ssl not in {"0", "false", "no", "off"},
         compatibility=compatibility,
     )
 
@@ -52,6 +55,7 @@ GEONODE_PASSWORD = settings.geonode_password
 GEONODE_VERSION = settings.geonode_version
 GEONODE_API_VERSION = settings.api_version
 API_BASE = settings.api_base
+VERIFY_SSL = settings.verify_ssl
 COMPATIBILITY = settings.compatibility
 
 DEFAULT_PAGE_SIZE = 20

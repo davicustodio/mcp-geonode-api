@@ -66,7 +66,7 @@ async def detect_geonode_instance(
     async with httpx.AsyncClient(
         auth=auth,
         timeout=request_timeout,
-        verify=False,
+        verify=config.VERIFY_SSL,
         follow_redirects=True,
     ) as client:
         root_probe = await _probe_text(client, f"{base_url}/")

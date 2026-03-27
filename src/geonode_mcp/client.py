@@ -21,7 +21,7 @@ class GeoNodeClient:
             base_url=config.API_BASE,
             auth=(config.GEONODE_USER, config.GEONODE_PASSWORD),
             timeout=config.REQUEST_TIMEOUT,
-            verify=False,
+            verify=config.VERIFY_SSL,
         )
 
     async def stop(self) -> None:

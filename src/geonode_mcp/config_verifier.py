@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -111,22 +112,32 @@ def _run_server_checks(server: dict[str, Any]) -> list[dict[str, Any]]:
 
     env_value = server.get("env", server.get("environment", {}))
     has_env = isinstance(env_value, dict)
+    resolved_executable = _resolve_executable(executable)
     checks: list[dict[str, Any]] = [
         {"name": "server_has_command", "ok": bool(executable), "detail": executable or None},
         {"name": "server_has_env_mapping", "ok": has_env, "detail": None},
         {
             "name": "command_exists",
-            "ok": Path(executable).expanduser().exists(),
-            "detail": executable,
+            "ok": resolved_executable is not None,
+            "detail": resolved_executable or executable,
         },
     ]
 
-    if executable and Path(executable).expanduser().exists() and _looks_like_python_geonode_command(
-        executable, args
-    ):
-        checks.append(_check_python_import(executable))
+    if resolved_executable and _looks_like_python_geonode_command(resolved_executable, args):
+        checks.append(_check_python_import(resolved_executable))
 
     return checks
+
+
+def _resolve_executable(executable: str) -> str | None:
+    if not executable:
+        return None
+
+    expanded = Path(executable).expanduser()
+    if expanded.exists():
+        return str(expanded)
+
+    return shutil.which(executable)
 
 
 def _looks_like_python_geonode_command(executable: str, args: list[str]) -> bool:

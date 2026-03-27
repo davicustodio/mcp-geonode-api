@@ -153,7 +153,7 @@ async def geonode_create_dataset(params: CreateDatesetInput) -> str:
             return json.dumps({"dataset": ds}, indent=2, ensure_ascii=False)
 
         return (
-            f"Dateset criado com sucesso!\n\n"
+            f"Dateset created successfully!\n\n"
             f"- **ID**: {ds.get('pk', 'N/A')}\n"
             f"- **Title**: {ds.get('title', params.title)}\n"
             f"- **Link**: {ds.get('detail_url', 'N/A')}\n"
@@ -185,7 +185,7 @@ async def geonode_update_dataset(params: UpdateDatesetInput) -> str:
             payload["keywords"] = [{"name": k} for k in params.keywords]
 
         if not payload:
-            return "Error: Nenhum campo para atualizar foi informado."
+            return "Error: No fields to update were provided."
 
         data = await api.patch(
             api.route("dataset_detail", dataset_id=params.dataset_id),
@@ -197,7 +197,7 @@ async def geonode_update_dataset(params: UpdateDatesetInput) -> str:
             return json.dumps({"dataset": ds}, indent=2, ensure_ascii=False)
 
         return (
-            f"Dateset atualizado com sucesso!\n\n"
+            f"Dateset updated successfully!\n\n"
             f"- **ID**: {ds.get('pk', params.dataset_id)}\n"
             f"- **Title**: {ds.get('title', 'N/A')}\n"
         )

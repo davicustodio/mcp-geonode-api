@@ -31,12 +31,12 @@ class CreateDocumentInput(PaginationInput):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     title: str = Field(..., description="Document title", min_length=1, max_length=255)
-    abstract: Optional[str] = Field(default=None, description="Summary/description do documento")
+    abstract: Optional[str] = Field(default=None, description="Document summary/description")
     doc_url: Optional[str] = Field(default=None, description="External document URL")
     category: Optional[str] = Field(default=None, description="Category identifier")
     regions: Optional[list[str]] = Field(
         default=None,
-        description="Region codes (ex: ['BRA'])",
+        description="Region codes (e.g. ['BRA'])",
     )
     keywords: Optional[list[str]] = Field(default=None, description="List of keywords")
     is_published: bool = Field(default=True, description="Publish immediately")

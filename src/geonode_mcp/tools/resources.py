@@ -370,7 +370,7 @@ async def geonode_bootstrap_mcp_config(params: BootstrapMCPConfigInput) -> str:
 
 
 async def geonode_search_resources(params: SearchResourcesInput) -> str:
-    """Busca resources no GeoNode com filtros.
+    """Searches GeoNode resources with filters.
 
     Searches across all resource types (datasets, documents, maps, geoapps)
     with support for filters by type, owner, category, keyword, and region,

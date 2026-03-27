@@ -166,7 +166,7 @@ async def geonode_update_user(params: UpdateUserInput) -> str:
             payload["last_name"] = params.last_name
 
         if not payload:
-            return "Error: Nenhum campo para atualizar foi informado."
+            return "Error: No fields to update were provided."
 
         data = await api.patch(api.route("user_detail", user_id=params.user_id), data=payload)
         u = data.get("user", data)

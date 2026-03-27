@@ -20,7 +20,7 @@ class SearchResourcesInput(PaginationInput):
     )
     owner: Optional[str] = Field(default=None, description="Owner username")
     category: Optional[str] = Field(
-        default=None, description="Category identifier (ex: 'biota', 'environment')"
+        default=None, description="Category identifier (e.g. 'biota', 'environment')"
     )
     keyword: Optional[str] = Field(default=None, description="Keyword name")
     region: Optional[str] = Field(default=None, description="Region code (e.g. 'BRA')")

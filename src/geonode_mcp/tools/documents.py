@@ -182,7 +182,7 @@ async def geonode_update_document(params: UpdateDocumentInput) -> str:
             payload["keywords"] = [{"name": k} for k in params.keywords]
 
         if not payload:
-            return "Error: Nenhum campo para atualizar foi informado."
+            return "Error: No fields to update were provided."
 
         data = await api.patch(
             api.route("document_detail", document_id=params.document_id),

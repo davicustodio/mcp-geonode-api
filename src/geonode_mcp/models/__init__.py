@@ -1,1 +1,1 @@
-"""Modelos Pydantic para entrada das tools."""
+"""Pydantic models for tool inputs."""

@@ -29,6 +29,50 @@ class SearchResourcesInput(PaginationInput):
     featured: Optional[bool] = Field(default=None, description="Filter by featured status")
 
 
+class MetadataSearchResourceType(str, Enum):
+    DATASET = "dataset"
+    DOCUMENT = "document"
+    MAP = "map"
+    GEOAPP = "geoapp"
+
+
+class MetadataSearchField(str, Enum):
+    TITLE = "title"
+    ABSTRACT = "abstract"
+    KEYWORDS = "keywords"
+    EXTRA_METADATA = "extra_metadata"
+    ANY_METADATA = "any_metadata"
+
+
+class MetadataSearchMode(str, Enum):
+    FAST = "fast"
+    EXHAUSTIVE = "exhaustive"
+
+
+class SearchMetadataTextInput(PaginationInput):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    text: str = Field(..., description="Text to search in metadata fields", min_length=1)
+    resource_types: Optional[list[MetadataSearchResourceType]] = Field(
+        default=None,
+        description="Resource types to search. Empty means dataset, document, and map.",
+    )
+    search_in: list[MetadataSearchField] = Field(
+        default_factory=lambda: [MetadataSearchField.ANY_METADATA],
+        description=(
+            "Metadata fields to search. Use 'any_metadata' to search title, abstract, "
+            "keywords, and extra metadata."
+        ),
+    )
+    search_mode: MetadataSearchMode = Field(
+        default=MetadataSearchMode.FAST,
+        description=(
+            "Search execution mode. 'fast' stops after higher-priority fields if enough "
+            "results were found for the requested page. 'exhaustive' executes all field plans."
+        ),
+    )
+
+
 class GetResourceInput(PaginationInput):
     model_config = ConfigDict(str_strip_whitespace=True)
 

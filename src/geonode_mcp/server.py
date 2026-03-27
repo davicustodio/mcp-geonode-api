@@ -40,6 +40,7 @@ from .tools.resources import (
     geonode_detect_instance,
     geonode_generate_mcp_config,
     geonode_get_resource,
+    geonode_search_metadata_text,
     geonode_search_resources,
     geonode_verify_mcp_config,
     geonode_write_mcp_config,
@@ -132,6 +133,17 @@ mcp.tool(
         "openWorldHint": True,
     },
 )(geonode_search_resources)
+
+mcp.tool(
+    name="geonode_search_metadata_text",
+    annotations={
+        "title": "Search GeoNode Metadata Text",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)(geonode_search_metadata_text)
 
 mcp.tool(
     name="geonode_get_resource",

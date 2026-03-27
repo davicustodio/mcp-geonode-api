@@ -47,7 +47,9 @@ def _read_json_server(path: Path, top_key: str, server_name: str) -> dict[str, A
 
     container = data.get(top_key)
     if not isinstance(container, dict):
-        raise ValueError(f"The file {path} does not contain the key `{top_key}` in the expected format.")
+        raise ValueError(
+            f"The file {path} does not contain the key `{top_key}` in the expected format."
+        )
 
     server = container.get(server_name)
     if not isinstance(server, dict):

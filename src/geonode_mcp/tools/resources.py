@@ -2,24 +2,53 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any, cast
+
+import httpx
 
 from ..client import api, handle_api_error
 from ..config_verifier import verify_mcp_config
 from ..config_writer import write_mcp_config
 from ..detection import detect_geonode_instance
-from ..models.common import ResponseFormat, build_pagination_params, format_pagination_footer
+from ..models.common import (
+    ResponseFormat,
+    build_pagination_params,
+    format_pagination_footer,
+)
 from ..models.resources import (
     BootstrapMCPConfigInput,
     DetectGeoNodeInstanceInput,
     GenerateMCPConfigInput,
     GetResourceInput,
+    MetadataSearchField,
+    MetadataSearchMode,
+    MetadataSearchResourceType,
+    SearchMetadataTextInput,
     SearchResourcesInput,
     VerifyMCPConfigInput,
     WriteMCPConfigInput,
 )
 from ..snippets import build_mcp_config_snippet
+
+_DEFAULT_METADATA_TYPES = [
+    MetadataSearchResourceType.DATASET,
+    MetadataSearchResourceType.DOCUMENT,
+    MetadataSearchResourceType.MAP,
+]
+_FIELD_PRIORITY = {
+    MetadataSearchField.TITLE: 0,
+    MetadataSearchField.KEYWORDS: 1,
+    MetadataSearchField.ABSTRACT: 2,
+    MetadataSearchField.EXTRA_METADATA: 3,
+}
+_ITEMS_BY_ROUTE = {
+    "datasets": "datasets",
+    "documents": "documents",
+    "maps": "maps",
+    "resources": "resources",
+}
 
 
 async def _resolve_client_config_context(
@@ -48,6 +77,268 @@ async def _resolve_client_config_context(
         "GEONODE_API_VERSION": str(resolved_api_version),
     }
     return detection, env
+
+
+def _unique_in_order(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    unique: list[str] = []
+    for value in values:
+        if value not in seen:
+            seen.add(value)
+            unique.append(value)
+    return unique
+
+
+def _normalize_resource_types(
+    resource_types: list[MetadataSearchResourceType] | None,
+) -> list[MetadataSearchResourceType]:
+    return list(resource_types or _DEFAULT_METADATA_TYPES)
+
+
+def _expand_search_fields(
+    search_in: list[MetadataSearchField],
+) -> list[MetadataSearchField]:
+    if not search_in or MetadataSearchField.ANY_METADATA in search_in:
+        return [
+            MetadataSearchField.TITLE,
+            MetadataSearchField.ABSTRACT,
+            MetadataSearchField.KEYWORDS,
+            MetadataSearchField.EXTRA_METADATA,
+        ]
+
+    ordered = [field.value for field in search_in]
+    return [MetadataSearchField(value) for value in _unique_in_order(ordered)]
+
+
+def _resource_key(item: dict[str, Any]) -> str:
+    resource_type = item.get("resource_type", "resource")
+    return f"{resource_type}:{item.get('pk', '')}"
+
+
+def _get_route_name(resource_type: MetadataSearchResourceType, field: MetadataSearchField) -> str:
+    if (
+        field == MetadataSearchField.EXTRA_METADATA
+        or resource_type == MetadataSearchResourceType.GEOAPP
+    ):
+        return "resources"
+
+    return {
+        MetadataSearchResourceType.DATASET: "datasets",
+        MetadataSearchResourceType.DOCUMENT: "documents",
+        MetadataSearchResourceType.MAP: "maps",
+        MetadataSearchResourceType.GEOAPP: "resources",
+    }[resource_type]
+
+
+def _build_field_params(
+    resource_type: MetadataSearchResourceType,
+    field: MetadataSearchField,
+    text: str,
+) -> dict[str, object]:
+    params: dict[str, object] = {}
+
+    if field == MetadataSearchField.TITLE:
+        params["filter{title.icontains}"] = text
+    elif field == MetadataSearchField.ABSTRACT:
+        params["filter{abstract.icontains}"] = text
+    elif field == MetadataSearchField.KEYWORDS:
+        params["filter{keywords.name.icontains}"] = text
+    elif field == MetadataSearchField.EXTRA_METADATA:
+        params["filter{metadata.metadata.icontains}"] = text
+
+    if (
+        resource_type == MetadataSearchResourceType.GEOAPP
+        or field == MetadataSearchField.EXTRA_METADATA
+    ):
+        params["filter{resource_type}"] = resource_type.value
+    elif _get_route_name(resource_type, field) == "resources":
+        params["filter{resource_type}"] = resource_type.value
+
+    return params
+
+
+def _build_subqueries(params: SearchMetadataTextInput) -> list[dict[str, object]]:
+    subqueries: list[dict[str, object]] = []
+    fields = _expand_search_fields(params.search_in)
+
+    for resource_type in _normalize_resource_types(params.resource_types):
+        for field in fields:
+            subqueries.append({
+                "resource_type": resource_type.value,
+                "field": field.value,
+                "route_name": _get_route_name(resource_type, field),
+                "query_params": _build_field_params(resource_type, field, params.text),
+            })
+
+    return subqueries
+
+
+def _build_subquery_batches(params: SearchMetadataTextInput) -> list[list[dict[str, object]]]:
+    if params.search_mode == MetadataSearchMode.EXHAUSTIVE:
+        return [_build_subqueries(params)]
+
+    resource_types = _normalize_resource_types(params.resource_types)
+    requested_fields = _expand_search_fields(params.search_in)
+    stage_fields: list[list[MetadataSearchField]] = []
+
+    high_priority_fields = [
+        field
+        for field in (MetadataSearchField.TITLE, MetadataSearchField.KEYWORDS)
+        if field in requested_fields
+    ]
+    if high_priority_fields:
+        stage_fields.append(high_priority_fields)
+
+    for field in (MetadataSearchField.ABSTRACT, MetadataSearchField.EXTRA_METADATA):
+        if field in requested_fields:
+            stage_fields.append([field])
+
+    batches: list[list[dict[str, object]]] = []
+    for fields in stage_fields:
+        batch: list[dict[str, object]] = []
+        for resource_type in resource_types:
+            for field in fields:
+                batch.append({
+                    "resource_type": resource_type.value,
+                    "field": field.value,
+                    "route_name": _get_route_name(resource_type, field),
+                    "query_params": _build_field_params(resource_type, field, params.text),
+                })
+        if batch:
+            batches.append(batch)
+
+    return batches
+
+
+def _extract_matching_keywords(item: dict[str, Any], text: str) -> str:
+    needle = text.casefold()
+    names = [k.get("name", "") for k in item.get("keywords", [])]
+    matches = [name for name in names if needle in name.casefold()]
+    return ", ".join(matches[:3])
+
+
+def _build_excerpt(item: dict[str, Any], field: MetadataSearchField, text: str) -> str:
+    if field == MetadataSearchField.TITLE:
+        return item.get("title", "Untitled")
+
+    if field == MetadataSearchField.KEYWORDS:
+        keyword_excerpt = _extract_matching_keywords(item, text)
+        return keyword_excerpt or "Matched in keywords."
+
+    if field == MetadataSearchField.EXTRA_METADATA:
+        return "Matched in extra metadata."
+
+    abstract = item.get("raw_abstract", "") or item.get("abstract", "")
+    if not abstract:
+        return "No summary available."
+
+    haystack = " ".join(str(abstract).split())
+    lower = haystack.casefold()
+    needle = text.casefold()
+    index = lower.find(needle)
+    if index < 0:
+        return haystack[:160] + ("..." if len(haystack) > 160 else "")
+
+    start = max(index - 60, 0)
+    end = min(index + len(text) + 100, len(haystack))
+    excerpt = haystack[start:end]
+    prefix = "..." if start > 0 else ""
+    suffix = "..." if end < len(haystack) else ""
+    return f"{prefix}{excerpt}{suffix}"
+
+
+def _match_keyword_locally(item: dict[str, Any], text: str) -> bool:
+    needle = text.casefold()
+    for keyword in item.get("keywords", []):
+        if needle in keyword.get("name", "").casefold():
+            return True
+    return False
+
+
+async def _run_subquery(
+    subquery: dict[str, object],
+    limit: int,
+    offset: int,
+    text: str,
+) -> dict[str, object]:
+    route_name = cast(str, subquery["route_name"])
+    route = api.route(route_name)
+    query_params = dict(cast(dict[str, object], subquery["query_params"]))
+    query_params.update(build_pagination_params(limit + offset, 0))
+
+    try:
+        data = await api.get(route, params=query_params)
+    except httpx.HTTPStatusError as exc:
+        field = cast(str, subquery["field"])
+        if field != MetadataSearchField.KEYWORDS.value or exc.response.status_code != 400:
+            raise
+
+        fallback_params = dict(build_pagination_params(limit + offset, 0))
+        fallback_params["search"] = text
+        if route_name == "resources":
+            fallback_params["filter{resource_type}"] = cast(str, subquery["resource_type"])
+        data = await api.get(route, params=fallback_params)
+
+    items_key = _ITEMS_BY_ROUTE[route_name]
+    items = cast(list[dict[str, Any]], data.get(items_key, []))
+    if cast(str, subquery["field"]) == MetadataSearchField.KEYWORDS.value:
+        items = [item for item in items if _match_keyword_locally(item, text)]
+
+    return {
+        "items": items,
+        "total": data.get("total", len(items)),
+        "field": subquery["field"],
+        "resource_type": subquery["resource_type"],
+        "route_name": route_name,
+    }
+
+
+def _sort_hits(hits: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    sorted_hits = list(hits.values())
+    sorted_hits.sort(key=lambda item: item.get("date", ""), reverse=True)
+    sorted_hits.sort(
+        key=lambda item: min(
+            _FIELD_PRIORITY[MetadataSearchField(field)]
+            for field in cast(list[str], item["matched_fields"])
+        ),
+    )
+    return sorted_hits
+
+
+def _format_metadata_search_result(
+    hits: list[dict[str, Any]],
+    requested_offset: int,
+    requested_limit: int,
+    total: int,
+    total_is_exact: bool,
+    execution_mode: str,
+    executed_subqueries: int,
+    planned_subqueries: int,
+) -> str:
+    if not hits:
+        return "No resources found with the applied metadata filters. Total: 0"
+
+    label = "exact" if total_is_exact else "partial"
+    lines = [f"# Metadata Search Results ({total} {label} matches)\n"]
+    for item in hits:
+        lines.append(f"## {item.get('title', 'Untitled')} (ID: {item.get('id', 'N/A')})")
+        lines.append(f"- **Type**: {item.get('resource_type', 'N/A')}")
+        lines.append(f"- **Matched fields**: {', '.join(item.get('matched_fields', []))}")
+        lines.append(f"- **Owner**: {item.get('owner', 'N/A')}")
+        lines.append(f"- **Date**: {item.get('date', 'N/A')}")
+        lines.append(f"- **Excerpt**: {item.get('excerpt', 'N/A')}")
+        lines.append(f"- **Link**: {item.get('detail_url', '')}")
+        lines.append("")
+
+    lines.append(format_pagination_footer(total, len(hits), requested_offset, requested_limit))
+    if not total_is_exact:
+        lines.append("\nNote: total is partial because this search merges multiple field queries.")
+    if execution_mode == MetadataSearchMode.FAST.value and executed_subqueries < planned_subqueries:
+        lines.append(
+            "\nNote: fast mode stopped early after higher-priority matches "
+            "filled the requested page."
+        )
+    return "\n".join(lines)
 
 
 async def geonode_detect_instance(params: DetectGeoNodeInstanceInput) -> str:
@@ -364,6 +655,106 @@ async def geonode_bootstrap_mcp_config(params: BootstrapMCPConfigInput) -> str:
                 detail = f" ({check['detail']})" if check.get("detail") else ""
                 lines.append(f"- `{check['name']}`: {check['ok']}{detail}")
         return "\n".join(lines)
+
+    except Exception as exc:
+        return handle_api_error(exc)
+
+
+async def geonode_search_metadata_text(params: SearchMetadataTextInput) -> str:
+    """Searches GeoNode metadata fields using the most selective API filters available.
+
+    Supports title, abstract, keywords, and extra metadata across datasets,
+    documents, maps, and geoapps.
+
+    Returns:
+        List of matching resources with matched fields and excerpts.
+    """
+    try:
+        subquery_batches = _build_subquery_batches(params)
+        planned_subqueries = sum(len(batch) for batch in subquery_batches)
+        executed_subqueries = 0
+        merged_hits: dict[str, dict[str, Any]] = {}
+        required_hits = params.offset + params.limit
+        last_query_results: list[dict[str, object]] = []
+
+        for batch_index, batch in enumerate(subquery_batches):
+            query_results = await asyncio.gather(*[
+                _run_subquery(subquery, params.limit, params.offset, params.text)
+                for subquery in batch
+            ])
+            last_query_results = query_results
+            executed_subqueries += len(batch)
+
+            for result in query_results:
+                field = MetadataSearchField(cast(str, result["field"]))
+
+                for item in cast(list[dict[str, Any]], result["items"]):
+                    key = _resource_key(item)
+                    owner = item.get("owner", {})
+                    owner_name = (
+                        f"{owner.get('first_name', '')} {owner.get('last_name', '')}".strip()
+                    )
+                    entry = merged_hits.setdefault(key, {
+                        "id": item.get("pk"),
+                        "resource_type": item.get(
+                            "resource_type",
+                            cast(str, result["resource_type"]),
+                        ),
+                        "title": item.get("title", "Untitled"),
+                        "detail_url": item.get("detail_url", ""),
+                        "owner": f"{owner_name} ({owner.get('username', '')})".strip(),
+                        "date": item.get("date", "N/A"),
+                        "matched_fields": [],
+                        "excerpt": _build_excerpt(item, field, params.text),
+                    })
+                    if field.value not in cast(list[str], entry["matched_fields"]):
+                        cast(list[str], entry["matched_fields"]).append(field.value)
+                        cast(list[str], entry["matched_fields"]).sort(
+                            key=lambda value: _FIELD_PRIORITY[MetadataSearchField(value)]
+                        )
+                    if field == MetadataSearchField.TITLE:
+                        entry["excerpt"] = _build_excerpt(item, field, params.text)
+
+            if (
+                params.search_mode == MetadataSearchMode.FAST
+                and batch_index < len(subquery_batches) - 1
+                and len(_sort_hits(merged_hits)) >= required_hits
+            ):
+                break
+
+        sorted_hits = _sort_hits(merged_hits)
+        paged_hits = sorted_hits[params.offset: params.offset + params.limit]
+        total_is_exact = executed_subqueries == 1
+        total = (
+            len(sorted_hits)
+            if not total_is_exact
+            else cast(int, last_query_results[0]["total"])
+        )
+
+        payload = {
+            "total": total,
+            "total_is_exact": total_is_exact,
+            "count": len(paged_hits),
+            "offset": params.offset,
+            "search_mode": params.search_mode.value,
+            "query_plan": _build_subqueries(params),
+            "query_plan_executed": executed_subqueries,
+            "query_plan_total": planned_subqueries,
+            "results": paged_hits,
+        }
+        if params.response_format == ResponseFormat.JSON:
+            return json.dumps(payload, indent=2, ensure_ascii=False)
+
+        return _format_metadata_search_result(
+            paged_hits,
+            params.offset,
+            params.limit,
+            total,
+            total_is_exact,
+            params.search_mode.value,
+            executed_subqueries,
+            planned_subqueries,
+        )
 
     except Exception as exc:
         return handle_api_error(exc)

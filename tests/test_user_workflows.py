@@ -3,6 +3,9 @@ from __future__ import annotations
 import asyncio
 import json
 
+import pytest
+from pydantic import ValidationError
+
 from geonode_mcp.models.user_workflows import (
     AddUsersToGroupInput,
     BulkCreateUsersInput,
@@ -22,6 +25,14 @@ def test_workflow_user_defaults_username_to_email() -> None:
     )
 
     assert user.username_or_email == "Ada.Lovelace@Example.org"
+
+
+def test_group_slug_rejects_path_separators() -> None:
+    with pytest.raises(ValidationError):
+        AddUsersToGroupInput(group_slug="../admin", user_ids=[1])
+
+    with pytest.raises(ValidationError):
+        FindGroupUsersByResourceOwnershipInput(group_slug="group/name")
 
 
 def test_count_user_owned_resources_uses_owner_pk_filter(monkeypatch) -> None:
@@ -63,6 +74,30 @@ def test_count_user_owned_resources_uses_owner_pk_filter(monkeypatch) -> None:
     assert all("owner" not in call[1] for call in resource_calls)
     assert all("owner__username" not in call[1] for call in resource_calls)
     assert payload["users"][0]["resources"]["total"] == 12
+
+
+def test_count_user_owned_resources_fails_closed_without_total(monkeypatch) -> None:
+    async def fake_get(route: str, params: dict[str, object] | None = None) -> dict[str, object]:
+        if route == "users/7":
+            return {"user": {"pk": 7, "username": "ada@example.org", "email": "ada@example.org"}}
+        return {}
+
+    def fake_route(name: str, **kwargs) -> str:
+        if name == "user_detail":
+            return f"users/{kwargs['user_id']}"
+        return name
+
+    monkeypatch.setattr(user_workflows.api, "route", fake_route)
+    monkeypatch.setattr(user_workflows.api, "get", fake_get)
+
+    output = asyncio.run(
+        user_workflows.geonode_count_user_owned_resources(
+            CountUserOwnedResourcesInput(user_ids=[7])
+        )
+    )
+
+    assert output.startswith("Error:")
+    assert "did not include a total count" in output
 
 
 def test_find_group_users_by_resource_ownership_splits_by_domain_and_counts(monkeypatch) -> None:
@@ -165,6 +200,7 @@ def test_bulk_create_users_requires_confirmation_for_password_and_redacts_it(mon
 
 def test_add_users_to_group_uses_admin_membership_helper(monkeypatch) -> None:
     calls: list[tuple[str, str, list[int]]] = []
+    added_user_ids: set[int] = set()
 
     async def fake_get(route: str, params: dict[str, object] | None = None) -> dict[str, object]:
         if route == "groups":
@@ -178,11 +214,14 @@ def test_add_users_to_group_uses_admin_membership_helper(monkeypatch) -> None:
                 "users": [{"pk": 10, "username": "ada", "email": "ada@example.org"}],
             }
         if route == "users/10/groups":
+            if 10 in added_user_ids:
+                return {"groups": [{"pk": 60, "slug": "fapergs", "title": "fapergs"}]}
             return {"groups": []}
         raise AssertionError(route)
 
     async def fake_add_group_members(*, group_slug: str, user_ids: list[int]) -> dict[str, object]:
         calls.append(("add_group_members", group_slug, user_ids))
+        added_user_ids.update(user_ids)
         return {"added": user_ids}
 
     def fake_route(name: str, **kwargs) -> str:
@@ -203,6 +242,46 @@ def test_add_users_to_group_uses_admin_membership_helper(monkeypatch) -> None:
 
     assert calls == [("add_group_members", "fapergs", [10])]
     assert payload["added"] == [{"pk": 10, "username": "ada", "email": "ada@example.org"}]
+    assert payload["failed"] == []
+
+
+def test_add_users_to_group_reports_unconfirmed_membership(monkeypatch) -> None:
+    async def fake_get(route: str, params: dict[str, object] | None = None) -> dict[str, object]:
+        if route == "groups":
+            return {
+                "total": 1,
+                "groups": [{"pk": 60, "slug": "fapergs", "title": "fapergs"}],
+            }
+        if route == "users":
+            return {
+                "total": 1,
+                "users": [{"pk": 10, "username": "ada", "email": "ada@example.org"}],
+            }
+        if route == "users/10/groups":
+            return {"groups": []}
+        raise AssertionError(route)
+
+    async def fake_add_group_members(*, group_slug: str, user_ids: list[int]) -> dict[str, object]:
+        return {"added": user_ids}
+
+    def fake_route(name: str, **kwargs) -> str:
+        if name == "user_groups":
+            return f"users/{kwargs['user_id']}/groups"
+        return name
+
+    monkeypatch.setattr(user_workflows.api, "route", fake_route)
+    monkeypatch.setattr(user_workflows.api, "get", fake_get)
+    monkeypatch.setattr(user_workflows.api, "add_group_members", fake_add_group_members)
+
+    output = asyncio.run(
+        user_workflows.geonode_add_users_to_group(
+            AddUsersToGroupInput(group_slug="fapergs", emails=["ada@example.org"])
+        )
+    )
+    payload = json.loads(output)
+
+    assert payload["added"] == []
+    assert payload["failed"][0]["reason"] == "Membership was not confirmed after update."
 
 
 def test_delete_users_safely_blocks_mismatched_expected_count(monkeypatch) -> None:
@@ -280,4 +359,47 @@ def test_delete_users_safely_deletes_only_validated_users(monkeypatch) -> None:
     assert deleted == ["users/1"]
     assert payload["deleted"] == [{"pk": 1, "username": "ada", "email": "ada@example.org"}]
     assert payload["skipped"][0]["user"]["pk"] == 2
-    assert payload["skipped"][0]["reason"] == "User is staff or superuser."
+    assert payload["skipped"][0]["reason"] == (
+        "User staff/superuser status is missing or privileged."
+    )
+
+
+def test_delete_users_safely_fails_closed_when_staff_fields_are_missing(monkeypatch) -> None:
+    deleted: list[str] = []
+
+    async def fake_get(route: str, params: dict[str, object] | None = None) -> dict[str, object]:
+        if route == "users/1":
+            return {"user": {"pk": 1, "username": "ada", "email": "ada@example.org"}}
+        if route in {"datasets", "documents", "maps", "geoapps"}:
+            return {"total": 0}
+        raise AssertionError(route)
+
+    async def fake_delete(route: str) -> dict[str, object]:
+        deleted.append(route)
+        return {}
+
+    def fake_route(name: str, **kwargs) -> str:
+        if name == "user_detail":
+            return f"users/{kwargs['user_id']}"
+        return name
+
+    monkeypatch.setattr(user_workflows.api, "route", fake_route)
+    monkeypatch.setattr(user_workflows.api, "get", fake_get)
+    monkeypatch.setattr(user_workflows.api, "delete", fake_delete)
+
+    output = asyncio.run(
+        user_workflows.geonode_delete_users_safely(
+            DeleteUsersSafelyInput(
+                user_ids=[1],
+                dry_run=False,
+                confirm=True,
+                expected_count=1,
+            )
+        )
+    )
+    payload = json.loads(output)
+
+    assert deleted == []
+    assert payload["skipped"][0]["reason"] == (
+        "User staff/superuser status is missing or privileged."
+    )

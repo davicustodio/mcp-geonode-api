@@ -110,6 +110,7 @@ class GeoNodeClient:
                 },
             )
             response.raise_for_status()
+            _ensure_login_success(response)
         except Exception:
             await client.aclose()
             raise
@@ -154,8 +155,9 @@ class GeoNodeClient:
                 headers={"Referer": str(page.url), "X-CSRFToken": csrf_token},
                 follow_redirects=False,
             )
-            if response.status_code not in {200, 302, 303}:
+            if response.status_code not in {302, 303}:
                 response.raise_for_status()
+                raise RuntimeError("GeoNode admin password form did not redirect after submission.")
         finally:
             await client.aclose()
         return {"user_id": user_id, "changed": True}
@@ -172,6 +174,21 @@ def _extract_csrf_token(html: str, cookies: httpx.Cookies) -> str:
     if not match:
         raise RuntimeError("Could not find CSRF token in GeoNode login/admin page.")
     return match.group(1)
+
+
+def _ensure_login_success(response: httpx.Response) -> None:
+    content_type = response.headers.get("content-type", "")
+    if "json" not in content_type:
+        return
+
+    try:
+        body = response.json()
+    except ValueError:
+        return
+
+    success = body.get("success", body.get("authenticated"))
+    if success is False or body.get("error"):
+        raise RuntimeError("GeoNode web login failed.")
 
 
 def handle_api_error(exc: Exception) -> str:

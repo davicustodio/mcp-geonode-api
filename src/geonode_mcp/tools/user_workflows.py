@@ -67,6 +67,17 @@ def _group_matches(group: dict[str, Any], *, group_id: int | None, group_slug: s
     return False
 
 
+def _read_total(data: dict[str, Any], route_name: str) -> int:
+    if "total" not in data:
+        raise RuntimeError(f"GeoNode `{route_name}` response did not include a total count.")
+    try:
+        return int(data["total"])
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError(
+            f"GeoNode `{route_name}` response included an invalid total count."
+        ) from exc
+
+
 def _password_update_allowed(
     *,
     target_count: int,
@@ -227,7 +238,7 @@ async def _owned_resource_counts(user: dict[str, Any]) -> dict[str, int]:
             api.route(route_name),
             params={"page": 1, "page_size": 1, "filter{owner.pk}": user_id},
         )
-        count = int(data.get("total", 0))
+        count = _read_total(data, route_name)
         counts[label] = count
         total += count
     counts["total"] = total
@@ -356,18 +367,32 @@ async def geonode_add_users_to_group(params: AddUsersToGroupInput) -> str:
                 user_ids=[int(user["pk"]) for user in to_add],
             )
 
-        added = [_user_summary(user) for user in to_add]
+        added: list[dict[str, Any]] = []
+        failed: list[dict[str, Any]] = []
+        for user in to_add:
+            if await _user_is_group_member(
+                int(user["pk"]),
+                group_id=group_id,
+                group_slug=str(group_slug),
+            ):
+                added.append(_user_summary(user))
+            else:
+                failed.append({
+                    "user": _user_summary(user),
+                    "reason": "Membership was not confirmed after update.",
+                })
+
         return _json({
             "group": _group_summary(group),
             "added": added,
             "already_member": already_member,
             "not_found": not_found,
-            "failed": [],
+            "failed": failed,
             "summary": {
                 "added": len(added),
                 "already_member": len(already_member),
                 "not_found": len(not_found),
-                "failed": 0,
+                "failed": len(failed),
             },
         })
     except Exception as exc:
@@ -424,19 +449,35 @@ async def geonode_bulk_create_users_and_add_to_group(
                 user_ids=[int(user["pk"]) for user in to_add],
             )
 
-        added = [_user_summary(user) for user in to_add]
+        added: list[dict[str, Any]] = []
+        failed: list[dict[str, Any]] = []
+        for user in to_add:
+            if await _user_is_group_member(
+                int(user["pk"]),
+                group_id=group.get("pk"),
+                group_slug=str(group_slug),
+            ):
+                added.append(_user_summary(user))
+            else:
+                failed.append({
+                    "user": _user_summary(user),
+                    "reason": "Membership was not confirmed after update.",
+                })
+
         return _json({
             "group": {"created": group_created, **_group_summary(group)},
             "created": created,
             "reused": reused,
             "added": added,
             "already_member": already_member,
+            "failed": failed,
             "password_updates": password_updates,
             "summary": {
                 "created": len(created),
                 "reused": len(reused),
                 "added": len(added),
                 "already_member": len(already_member),
+                "failed": len(failed),
                 "password_updates": len(password_updates),
             },
         })
@@ -535,10 +576,11 @@ async def geonode_delete_users_safely(params: DeleteUsersSafelyInput) -> str:
 
         for user in users:
             reason = None
-            if params.require_not_staff and (
-                bool(user.get("is_staff")) or bool(user.get("is_superuser"))
-            ):
-                reason = "User is staff or superuser."
+            if params.require_not_staff:
+                is_staff = user.get("is_staff")
+                is_superuser = user.get("is_superuser")
+                if is_staff is not False or is_superuser is not False:
+                    reason = "User staff/superuser status is missing or privileged."
 
             if (
                 reason is None

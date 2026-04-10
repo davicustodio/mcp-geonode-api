@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+PositiveUserId = Annotated[int, Field(gt=0)]
 
 
 class GroupAccess(str, Enum):
@@ -36,6 +39,14 @@ class GeoNodeWorkflowUserInput(BaseModel):
         return self.username or self.email
 
 
+def _validate_slug(value: str | None) -> str | None:
+    if value is None:
+        return None
+    if "/" in value or "\\" in value:
+        raise ValueError("slug must not contain path separators")
+    return value
+
+
 class CreateGroupInput(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
@@ -47,6 +58,11 @@ class CreateGroupInput(BaseModel):
         description="Group access policy.",
     )
     categories: list[int] = Field(default_factory=list, description="GeoNode category IDs")
+
+    @field_validator("slug")
+    @classmethod
+    def validate_slug(cls, value: str) -> str:
+        return _validate_slug(value) or value
 
 
 class BulkCreateUsersInput(BaseModel):
@@ -77,7 +93,11 @@ class AddUsersToGroupInput(BaseModel):
 
     group_id: int | None = Field(default=None, description="Group ID (pk)", gt=0)
     group_slug: str | None = Field(default=None, description="Group slug")
-    user_ids: list[int] = Field(default_factory=list, description="User IDs", min_length=0)
+    user_ids: list[PositiveUserId] = Field(
+        default_factory=list,
+        description="User IDs",
+        min_length=0,
+    )
     emails: list[str] = Field(default_factory=list, description="User emails", min_length=0)
     usernames: list[str] = Field(default_factory=list, description="Usernames", min_length=0)
 
@@ -89,6 +109,11 @@ class AddUsersToGroupInput(BaseModel):
             raise ValueError("Provide at least one user identifier.")
         return self
 
+    @field_validator("group_slug")
+    @classmethod
+    def validate_group_slug(cls, value: str | None) -> str | None:
+        return _validate_slug(value)
+
 
 class BulkCreateUsersAndAddToGroupInput(BulkCreateUsersInput):
     group: CreateGroupInput
@@ -97,7 +122,11 @@ class BulkCreateUsersAndAddToGroupInput(BulkCreateUsersInput):
 class CountUserOwnedResourcesInput(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    user_ids: list[int] = Field(default_factory=list, description="User IDs", min_length=0)
+    user_ids: list[PositiveUserId] = Field(
+        default_factory=list,
+        description="User IDs",
+        min_length=0,
+    )
     emails: list[str] = Field(default_factory=list, description="User emails", min_length=0)
     usernames: list[str] = Field(default_factory=list, description="Usernames", min_length=0)
 
@@ -123,6 +152,11 @@ class FindGroupUsersByResourceOwnershipInput(BaseModel):
         if self.group_id is None and not self.group_slug:
             raise ValueError("Provide group_id or group_slug.")
         return self
+
+    @field_validator("group_slug")
+    @classmethod
+    def validate_group_slug(cls, value: str | None) -> str | None:
+        return _validate_slug(value)
 
 
 class DeleteUsersSafelyInput(CountUserOwnedResourcesInput):
@@ -150,3 +184,8 @@ class DeleteUsersSafelyInput(CountUserOwnedResourcesInput):
         default=True,
         description="Reject staff and superuser accounts.",
     )
+
+    @field_validator("required_group_slug")
+    @classmethod
+    def validate_required_group_slug(cls, value: str | None) -> str | None:
+        return _validate_slug(value)

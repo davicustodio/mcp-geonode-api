@@ -35,6 +35,7 @@ def _build_v2_routes() -> dict[str, str]:
         "document_detail": "/documents/{document_id}/",
         "maps": "/maps/",
         "map_detail": "/maps/{map_id}/",
+        "geoapps": "/geoapps/",
         "users": "/users/",
         "user_detail": "/users/{user_id}/",
         "user_groups": "/users/{user_id}/groups",

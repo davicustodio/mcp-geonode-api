@@ -45,6 +45,15 @@ from .tools.resources import (
     geonode_verify_mcp_config,
     geonode_write_mcp_config,
 )
+from .tools.user_workflows import (
+    geonode_add_users_to_group,
+    geonode_bulk_create_users,
+    geonode_bulk_create_users_and_add_to_group,
+    geonode_count_user_owned_resources,
+    geonode_create_group,
+    geonode_delete_users_safely,
+    geonode_find_group_users_by_resource_ownership,
+)
 from .tools.users import (
     geonode_get_group,
     geonode_get_user,
@@ -394,6 +403,85 @@ mcp.tool(
         "openWorldHint": True,
     },
 )(geonode_get_group)
+
+# ── User & Group Workflows ───────────────────────────────────────────────────
+
+mcp.tool(
+    name="geonode_create_group",
+    annotations={
+        "title": "Create or Reuse Group",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)(geonode_create_group)
+
+mcp.tool(
+    name="geonode_bulk_create_users",
+    annotations={
+        "title": "Bulk Create or Reuse Users",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)(geonode_bulk_create_users)
+
+mcp.tool(
+    name="geonode_add_users_to_group",
+    annotations={
+        "title": "Add Users to Group",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)(geonode_add_users_to_group)
+
+mcp.tool(
+    name="geonode_bulk_create_users_and_add_to_group",
+    annotations={
+        "title": "Bulk Create Users and Add to Group",
+        "readOnlyHint": False,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)(geonode_bulk_create_users_and_add_to_group)
+
+mcp.tool(
+    name="geonode_count_user_owned_resources",
+    annotations={
+        "title": "Count User Owned Resources",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)(geonode_count_user_owned_resources)
+
+mcp.tool(
+    name="geonode_find_group_users_by_resource_ownership",
+    annotations={
+        "title": "Find Group Users by Resource Ownership",
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": True,
+    },
+)(geonode_find_group_users_by_resource_ownership)
+
+mcp.tool(
+    name="geonode_delete_users_safely",
+    annotations={
+        "title": "Safely Delete Users",
+        "readOnlyHint": False,
+        "destructiveHint": True,
+        "idempotentHint": False,
+        "openWorldHint": True,
+    },
+)(geonode_delete_users_safely)
 
 # ── Catalog ─────────────────────────────────────────────────────────────────
 

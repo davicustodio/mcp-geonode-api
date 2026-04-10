@@ -6,6 +6,7 @@ import json
 import httpx
 import pytest
 
+from geonode_mcp.models.common import ResponseFormat
 from geonode_mcp.models.resources import (
     MetadataSearchField,
     MetadataSearchMode,
@@ -105,7 +106,7 @@ def test_search_metadata_text_merges_results_and_tracks_fields(
                 text="degraded soil",
                 resource_types=[MetadataSearchResourceType.DATASET],
                 search_in=[MetadataSearchField.TITLE, MetadataSearchField.ABSTRACT],
-                response_format="json",
+                response_format=ResponseFormat.JSON,
             )
         )
     )
@@ -169,7 +170,7 @@ def test_fast_mode_stops_after_first_batch_when_page_is_filled(
                 resource_types=[MetadataSearchResourceType.DATASET],
                 search_in=[MetadataSearchField.ANY_METADATA],
                 limit=2,
-                response_format="json",
+                response_format=ResponseFormat.JSON,
             )
         )
     )
@@ -212,7 +213,7 @@ def test_search_metadata_text_uses_resources_for_extra_metadata(
                 text="environmental preservation",
                 resource_types=[MetadataSearchResourceType.DATASET],
                 search_in=[MetadataSearchField.EXTRA_METADATA],
-                response_format="json",
+                response_format=ResponseFormat.JSON,
             )
         )
     )
@@ -271,7 +272,7 @@ def test_keyword_search_falls_back_to_search_when_filter_is_not_supported(
                 text="precision agriculture",
                 resource_types=[MetadataSearchResourceType.DATASET],
                 search_in=[MetadataSearchField.KEYWORDS],
-                response_format="json",
+                response_format=ResponseFormat.JSON,
             )
         )
     )
@@ -308,7 +309,7 @@ def test_title_search_across_two_types_uses_two_targeted_calls(
                     MetadataSearchResourceType.DOCUMENT,
                 ],
                 search_in=[MetadataSearchField.TITLE],
-                response_format="json",
+                response_format=ResponseFormat.JSON,
             )
         )
     )
@@ -340,7 +341,7 @@ def test_exhaustive_mode_executes_all_any_metadata_batches(
                 resource_types=[MetadataSearchResourceType.DATASET],
                 search_in=[MetadataSearchField.ANY_METADATA],
                 search_mode=MetadataSearchMode.EXHAUSTIVE,
-                response_format="json",
+                response_format=ResponseFormat.JSON,
             )
         )
     )

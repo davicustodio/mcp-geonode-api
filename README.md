@@ -19,9 +19,94 @@ This keeps the MCP ready for future API changes without spreading version checks
 - Bootstrap a complete MCP client setup in one call
 - Resolve the groups associated with a specific user
 - List and manage datasets, documents, maps, users, and groups
+- Run safer bulk user workflows for group onboarding, password setup, ownership audit, and guarded deletion
 - List categories, keywords, regions, and owners
 - Centralized compatibility layer for GeoNode/API version mapping
 - Local stdio execution for MCP clients such as Codex, Cursor, OpenCode, and Claude Code
+
+## Available Tools
+
+The MCP server exposes the tools below. Tools that create, update, delete, write files, or set passwords require credentials with the matching GeoNode permissions. Bulk password and deletion workflows include explicit safety fields such as `dry_run`, `confirm`, and `expected_count`.
+
+### Instance and MCP Configuration
+
+| Tool | Function |
+| --- | --- |
+| `geonode_detect_instance` | Probes a GeoNode URL and recommends `GEONODE_URL`, `GEONODE_VERSION`, and `GEONODE_API_VERSION` settings. |
+| `geonode_generate_mcp_config` | Generates a ready-to-use MCP client configuration snippet without writing files. |
+| `geonode_write_mcp_config` | Writes a generated MCP client configuration to a supported local client config file. |
+| `geonode_verify_mcp_config` | Validates that a written MCP config is structurally correct and can launch the server. |
+| `geonode_bootstrap_mcp_config` | Runs detection, config generation, file writing, and optional verification in one workflow. |
+
+### Search and Generic Resources
+
+| Tool | Function |
+| --- | --- |
+| `geonode_search_resources` | Searches GeoNode resources through the generic resources endpoint with pagination and filters. |
+| `geonode_search_metadata_text` | Searches metadata text across selected fields and resource types, merging targeted API queries. |
+| `geonode_get_resource` | Fetches details for a generic GeoNode resource by ID. |
+
+### Datasets
+
+| Tool | Function |
+| --- | --- |
+| `geonode_list_datasets` | Lists datasets with pagination and optional search/filter parameters. |
+| `geonode_get_dataset` | Fetches dataset details by ID. |
+| `geonode_create_dataset` | Creates a dataset entry. |
+| `geonode_update_dataset` | Updates dataset metadata. |
+| `geonode_delete_dataset` | Deletes a dataset by ID. |
+
+### Documents
+
+| Tool | Function |
+| --- | --- |
+| `geonode_list_documents` | Lists documents with pagination and optional search/filter parameters. |
+| `geonode_get_document` | Fetches document details by ID. |
+| `geonode_create_document` | Creates a document entry. |
+| `geonode_update_document` | Updates document metadata. |
+| `geonode_delete_document` | Deletes a document by ID. |
+
+### Maps
+
+| Tool | Function |
+| --- | --- |
+| `geonode_list_maps` | Lists maps with pagination and optional search/filter parameters. |
+| `geonode_get_map` | Fetches map details by ID. |
+| `geonode_create_map` | Creates a map entry. |
+| `geonode_update_map` | Updates map metadata. |
+| `geonode_delete_map` | Deletes a map by ID. |
+
+### Users and Groups
+
+| Tool | Function |
+| --- | --- |
+| `geonode_list_users` | Lists users by name, username, or email. |
+| `geonode_get_user` | Fetches user details by ID. |
+| `geonode_get_user_groups` | Resolves the groups associated with a user by ID or exact username. |
+| `geonode_update_user` | Updates supported user fields, currently first name and last name. |
+| `geonode_list_groups` | Lists GeoNode groups. |
+| `geonode_get_group` | Fetches group details by ID. |
+
+### User and Group Workflows
+
+| Tool | Function |
+| --- | --- |
+| `geonode_create_group` | Creates or reuses a GeoNode group by slug. |
+| `geonode_bulk_create_users` | Creates or reuses users from structured JSON input and can set a shared password with explicit confirmation. |
+| `geonode_add_users_to_group` | Adds existing users to a group and verifies membership after the update. |
+| `geonode_bulk_create_users_and_add_to_group` | Creates or reuses a group and users, optionally sets passwords, and adds the users to the group. |
+| `geonode_count_user_owned_resources` | Counts owned datasets, documents, maps, and dashboards for selected users using `filter{owner.pk}`. |
+| `geonode_find_group_users_by_resource_ownership` | Splits group users into users with and without owned resources, with optional email-domain filtering. |
+| `geonode_delete_users_safely` | Deletes only explicitly listed users after fail-closed safety checks for confirmation, group membership, staff status, and owned resources. |
+
+### Catalog Lookups
+
+| Tool | Function |
+| --- | --- |
+| `geonode_list_categories` | Lists GeoNode categories. |
+| `geonode_list_keywords` | Lists keywords, optionally filtered by search text. |
+| `geonode_list_regions` | Lists regions, optionally filtered by name or code. |
+| `geonode_list_owners` | Lists resource owners, optionally filtered by search text. |
 
 ## Compatibility
 
